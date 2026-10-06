@@ -1,0 +1,36 @@
+#pragma once
+#include <pgmspace.h>
+const char INDEX_HTML[] PROGMEM = R"DHTHTML(<!DOCTYPE html>
+<html lang="th"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DHT11 • Room Monitor</title>
+<style>
+:root{color-scheme:light;--ink:#183b3e;--muted:#627c7d}*{box-sizing:border-box}body{margin:0;background:#edf4f1;font-family:system-ui,-apple-system,"Noto Sans Thai",sans-serif;color:var(--ink)}main{max-width:520px;margin:auto;padding:28px 22px 34px}.brand{font-size:11px;font-weight:800;letter-spacing:2px;color:#60817d}h1{font-size:30px;line-height:1.3;margin:18px 0 8px}p{line-height:1.7;color:var(--muted);margin:8px 0}.tag{display:inline-flex;align-items:center;gap:8px;background:#dce8e5;border-radius:24px;padding:9px 14px;font-size:13px;margin:14px 0 22px}.dot{width:8px;height:8px;border-radius:50%;background:#ad762a}.ok .dot{background:#18886c}.bad .dot{background:#bb534b}.card{position:relative;overflow:hidden;background:#fff;border:1px solid #dce8e4;border-radius:24px;padding:24px;margin-bottom:16px}.card:after{content:"";position:absolute;width:150px;height:150px;border-radius:50%;right:-55px;top:-55px;background:#faeee2}.humidity:after{background:#e5f3f7}.label{font-size:16px;font-weight:650}.metric{display:flex;align-items:baseline;gap:12px;margin-top:10px}.number{font-size:64px;font-weight:700;letter-spacing:-3px;line-height:1.2;font-variant-numeric:tabular-nums}.unit{font-size:22px;color:#859594}.meta{font-size:13px;color:var(--muted);margin-top:9px}svg{position:absolute;right:24px;top:22px;width:32px;height:32px;z-index:1}.info{background:#dfece7;padding:18px 20px;border-radius:18px;font-size:14px}.info strong{display:block;margin-bottom:5px}button{width:100%;border:0;border-radius:16px;padding:15px;background:#1e5752;color:white;font:600 15px system-ui;margin-top:18px;cursor:pointer}button:disabled{opacity:.5}.foot{font-size:11px;text-align:center;margin-top:20px;letter-spacing:.7px}#hint{min-height:48px;font-size:13px}#demo{display:none;background:#fff0c7;border-radius:10px;padding:8px;margin-bottom:12px;font-size:13px}@media(max-width:350px){main{padding:20px 14px}.number{font-size:54px}} 
+</style>
+<main><div id="demo">ภาพตัวอย่าง • ค่าจำลองสำหรับดูหน้าตาเว็บ</div><div class="brand">ESP32-CAM / ROOM MONITOR</div><h1>อากาศรอบตัวเรา</h1><p>อุณหภูมิและความชื้นจาก DHT11</p><div id="status" class="tag" role="status"><span class="dot"></span><span id="state">กำลังเชื่อมต่อบอร์ด</span></div>
+<section class="card"><svg viewBox="0 0 32 32" fill="none" stroke="#c38448" stroke-width="2"><path d="M12 19V7a4 4 0 018 0v12a7 7 0 11-8 0z"/><path d="M16 10v13"/><circle cx="16" cy="24" r="2" fill="#c38448"/></svg><div class="label">อุณหภูมิ</div><div class="metric"><span class="number" id="temp">--</span><span class="unit">°C</span></div><div class="meta">องศาเซลเซียส</div></section>
+<section class="card humidity"><svg viewBox="0 0 32 32" fill="none" stroke="#5595ad" stroke-width="2"><path d="M16 3S6 15 6 21a10 10 0 0020 0C26 15 16 3 16 3z"/><path d="M11 21a5 5 0 005 5"/></svg><div class="label">ความชื้นสัมพัทธ์</div><div class="metric"><span class="number" id="hum">--</span><span class="unit">%RH</span></div><div class="meta">สัดส่วนไอน้ำในอากาศเทียบกับจุดอิ่มตัว</div></section>
+<div class="info"><strong id="updated">รอข้อมูลจากเซนเซอร์</strong><span>อ่านค่าอัตโนมัติทุก 2.5 วินาที</span></div><p id="hint">เชื่อมต่อ Wi-Fi ของบอร์ด แล้วเปิด http://192.168.4.1</p><button id="refresh" type="button">โหลดข้อมูลล่าสุด</button><div class="foot">DHT11 · LOCAL WI-FI · NO CLOUD</div></main>
+<script>
+const el=id=>document.getElementById(id);let busy=false,timer,lastResponse=0;
+function clearValues(){el('temp').textContent='--';el('hum').textContent='--'}
+function state(text,kind){el('state').textContent=text;el('status').className='tag '+kind}
+function render(d){
+ if(d.status==='ok'&&Number.isFinite(d.temperature)&&Number.isFinite(d.humidity)&&Number.isFinite(d.age_ms)&&d.age_ms<=7500){
+  el('temp').textContent=d.temperature.toFixed(1);el('hum').textContent=d.humidity.toFixed(1);state('อ่านค่าได้ตามปกติ','ok');
+  el('updated').textContent='ได้รับข้อมูลแล้ว · ชุดที่ '+d.sequence;el('hint').textContent='ค่าที่วัดได้อาจเปลี่ยนตามตำแหน่ง แสงแดด และความร้อนใกล้เซนเซอร์';
+ }else{clearValues();el('updated').textContent='ยังไม่มีค่าปัจจุบัน';
+  if(d.status==='waiting'){state('รอเซนเซอร์เริ่มทำงาน','');el('hint').textContent='กำลังรอการอ่านครั้งแรก';}
+  else{state(d.status==='stale'?'ข้อมูลหมดอายุ':'อ่านเซนเซอร์ไม่ได้','bad');el('hint').textContent='ตรวจสาย VCC, GND และ DATA ที่ GPIO13 รวมถึงตัวต้านทาน pull-up';}
+ }
+}
+function offline(){clearValues();state('ติดต่อบอร์ดไม่ได้','bad');el('updated').textContent='ไม่มีข้อมูลล่าสุด';el('hint').textContent='ตรวจ Wi-Fi ของบอร์ด และเลือกเชื่อมต่อแม้ไม่มีอินเทอร์เน็ต';}
+async function poll(){
+ if(busy)return;busy=true;clearTimeout(timer);el('refresh').disabled=true;
+ const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),3500);
+ try{const r=await fetch('/api',{cache:'no-store',signal:controller.signal});if(!r.ok)throw Error('HTTP');const d=await r.json();render(d);lastResponse=Date.now();}
+ catch(e){offline();}finally{clearTimeout(timeout);busy=false;el('refresh').disabled=false;timer=setTimeout(poll,2500);}
+}
+el('refresh').addEventListener('click',poll);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){if(Date.now()-lastResponse>7500)offline();poll();}});
+window.addEventListener('offline',offline);
+poll();
+</script></html>)DHTHTML";
